@@ -1,21 +1,24 @@
-const BACKEND_URL = "https://my-proxy-backend-wj52.onrender.com";
+const BACKEND_URL = "https://onrender.com";
 
 self.addEventListener('fetch', (event) => {
   const requestUrl = new URL(event.request.url);
 
-  // If the asset request is targeted at our proxy frontend domain rather than a local asset,
-  // it means a proxied web application is trying to fetch internal assets natively.
-  if (requestUrl.origin === self.location.origin && !requestUrl.pathname.startsWith('/sw.js')) {
+  // Catch absolute navigation attempts routed straight to Discord domains inside the frame execution context
+  const isDiscordAsset = requestUrl.hostname.includes('discord.com') || requestUrl.hostname.includes('discordapp.com');
+  const isLocalRequest = requestUrl.origin === self.location.origin;
+
+  if ((isLocalRequest || isDiscordAsset) && !requestUrl.pathname.startsWith('/sw.js') && !event.request.url.startsWith(BACKEND_URL)) {
     
-    // We reconstruct the real destination target pointing back to Discord
-    const discordTarget = "https://discord.com" + requestUrl.pathname + requestUrl.search;
+    // Normalize target generation pathing structures
+    let targetPath = requestUrl.pathname + requestUrl.search;
+    const discordTarget = "https://discord.com" + targetPath;
     const proxiedUrl = `${BACKEND_URL}/proxy?url=${encodeURIComponent(discordTarget)}`;
 
     event.respondWith(
       fetch(proxiedUrl, {
         method: event.request.method,
         headers: event.request.headers,
-        credentials: 'omit' // This keeps login sessions bounded to the frame context execution
+        credentials: 'omit'
       })
     );
   }
