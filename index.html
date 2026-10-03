@@ -18,12 +18,13 @@
       <input type="text" id="urlInput" value="https://discord.com">
       <button onclick="loadPage()">Go</button>
     </div>
-    <!-- Removed 'allow-top-navigation' parameters to completely strip its breakout permission -->
+    <!-- Removed 'allow-top-navigation' entirely to strip breakout mechanics -->
     <iframe id="proxyFrame" sandbox="allow-forms allow-modals allow-popups allow-scripts allow-same-origin"></iframe>
   </div>
 
   <script>
-    const BACKEND_URL = "https://onrender.com";
+    // CORRECTED: Point this exactly to your live Render backend URL
+    const BACKEND_URL = "https://my-proxy-backend-wj52.onrender.com";
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then(() => {
@@ -37,19 +38,30 @@
       iframe.src = `${BACKEND_URL}/proxy?url=${encodeURIComponent(targetUrl)}`;
     }
 
-    // Force hook to monitor the frame's execution environment
     const iframe = document.getElementById("proxyFrame");
     iframe.addEventListener('load', () => {
       try {
         const frameWindow = iframe.contentWindow;
 
-        // Override window.open inside the frame so popups stay contained
+        // Override window.open inside the iframe so popups scale into the proxy frame
         frameWindow.open = function(url) {
           iframe.src = `${BACKEND_URL}/proxy?url=${encodeURIComponent(url)}`;
           return frameWindow;
         };
 
-        // Trap any form interactions inside the frame
+        // Click interceptor to bypass target="_blank" links forcing a breakout
+        frameWindow.document.addEventListener('click', (e) => {
+          const link = e.target.closest('a');
+          if (link && link.href) {
+            // If the link tries to target a new tab, force it into the proxy iframe
+            if (link.target === '_blank' || link.target === '_parent' || link.target === '_top') {
+              e.preventDefault();
+              iframe.src = `${BACKEND_URL}/proxy?url=${encodeURIComponent(link.href)}`;
+            }
+          }
+        }, true);
+
+        // Trap form entries securely inside the frame execution stack
         frameWindow.document.addEventListener('submit', (e) => {
           const form = e.target;
           if (form.action && !form.action.startsWith(BACKEND_URL)) {
@@ -61,8 +73,7 @@
         }, true);
 
       } catch (err) {
-        // Cross-origin roadblocks will catch natively before service worker matches routing
-        console.log("Frame isolation active.");
+        console.log("Cross-origin boundaries prevent direct script injection. Relying on Service Worker & Backend Rewriter.");
       }
     });
   </script>
