@@ -93,10 +93,8 @@
         url = "https://" + url;
       }
 
-      const proxyUrl =
-        BACKEND + "/proxy?url=" + encodeURIComponent(url);
+     document.getElementById("viewer").src = url;
 
-      document.getElementById("viewer").src = proxyUrl;
     }
 
     document.getElementById("url").addEventListener("keydown", function(event) {
